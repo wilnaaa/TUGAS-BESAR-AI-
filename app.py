@@ -41,6 +41,30 @@ section[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"] {{ display: none; }}
 h1, h2, h3, h4, p, label, li, span {{ color: {TEXT}; }}
 
+.awal {{ text-align: center; padding: 14vh 0 22px 0; }}
+.awal .t1 {{ font-size: 2.6rem; font-weight: 700; color: {NAVY}; line-height: 1.2; }}
+.awal .t2 {{ font-size: 1.05rem; color: #5B6275; margin-top: 12px; }}
+.awal-note {{ text-align: center; font-size: 0.8rem; color: #5B6275; margin-top: 22px; }}
+.progres-teks {{ text-align: center; font-size: 0.85rem; color: #5B6275; margin: 8px 0 6px 0; }}
+.progres {{ height: 6px; background: {BORDER}; border-radius: 999px; max-width: 560px; margin: 0 auto 18px auto; }}
+.progres > div {{ height: 100%; background: {NAVY}; border-radius: 999px; }}
+.kartu {{
+    background: {CREAM_SOFT}; border: 1px solid {BORDER}; border-radius: 20px;
+    max-width: 560px; margin: 0 auto 18px auto; padding: 34px 32px; text-align: center;
+    min-height: 230px; display: flex; flex-direction: column; justify-content: center;
+    box-shadow: 0 6px 18px rgba(27,42,74,0.08);
+}}
+.kartu .kat {{ font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #5B6275; }}
+.kartu .teks {{ font-size: 1.35rem; font-weight: 600; line-height: 1.5; color: {TEXT}; margin-top: 14px; }}
+div[class*="st-key-tidak"] .stButton > button {{ background: transparent !important; border: 1.5px solid {NAVY} !important; }}
+div[class*="st-key-tidak"] .stButton > button p {{ color: {NAVY} !important; }}
+div[class*="st-key-tidak"] .stButton > button:hover {{ background: {CREAM_SOFT} !important; }}
+div[class*="st-key-sebelumnya"] .stButton > button, div[class*="st-key-ulang"] .stButton > button,
+div[class*="st-key-kembali"] .stButton > button {{ background: transparent !important; border: none !important; }}
+div[class*="st-key-sebelumnya"] .stButton > button p, div[class*="st-key-ulang"] .stButton > button p,
+div[class*="st-key-kembali"] .stButton > button p {{ color: #5B6275 !important; font-weight: 500; }}
+div[class*="st-key-sebelumnya"] .stButton > button:hover, div[class*="st-key-ulang"] .stButton > button:hover,
+div[class*="st-key-kembali"] .stButton > button:hover {{ text-decoration: underline; }}
 .judul {{ font-size: 1.7rem; font-weight: 700; color: {NAVY}; margin-bottom: 2px; }}
 .sub {{ color: #5B6275; margin-bottom: 18px; }}
 
@@ -102,6 +126,21 @@ def cb_analisis():
 def cb_reset():
     for k in sistem.symptom_codes():
         st.session_state[f"cb_{k}"] = False
+    st.session_state["idx"] = 0
+    for key in ("fakta", "laporan", "kasus_aktif"):
+        st.session_state.pop(key, None)
+
+
+def cb_jawab(kode, nilai):
+    """Simpan jawaban kartu saat ini, lanjut ke kartu berikutnya."""
+    st.session_state[f"cb_{kode}"] = nilai
+    st.session_state["idx"] += 1
+    if st.session_state["idx"] >= len(sistem.symptom_codes()):
+        cb_analisis()
+
+
+def cb_mundur():
+    st.session_state["idx"] = max(0, st.session_state["idx"] - 1)
     for key in ("fakta", "laporan", "kasus_aktif"):
         st.session_state.pop(key, None)
 
@@ -110,10 +149,22 @@ def cb_kasus(kode):
     gejala = sistem.test_case(kode)["gejala"]
     for k in sistem.symptom_codes():
         st.session_state[f"cb_{k}"] = k in gejala
+    st.session_state["idx"] = len(sistem.symptom_codes())
     cb_analisis()
     st.session_state["kasus_aktif"] = kode
 
 
+def cb_mulai():
+    st.session_state["mulai"] = True
+
+
+def cb_awal():
+    cb_reset()
+    st.session_state["mulai"] = False
+
+
+st.session_state.setdefault("mulai", False)
+st.session_state.setdefault("idx", 0)
 for _k in sistem.symptom_codes():
     st.session_state.setdefault(f"cb_{_k}", False)
 
@@ -159,34 +210,63 @@ def kartu_hasil(lap, lengkap=True):
     st.markdown(isi + "</div>", unsafe_allow_html=True)
 
 
+# ------------------------------------------------------------- halaman awal
+if not st.session_state["mulai"]:
+    st.markdown(
+        '<div class="awal"><div class="t1">Cek Tingkat Stres<br>Mahasiswa</div>'
+        '<div class="t2">Skrining awal dalam beberapa menit.</div></div>',
+        unsafe_allow_html=True,
+    )
+    _a, tengah, _b = st.columns([1.2, 1, 1.2])
+    tengah.button("Mulai", on_click=cb_mulai, use_container_width=True)
+    st.markdown(
+        '<div class="awal-note">Hasil bersifat skrining non-klinis, bukan diagnosis.</div>',
+        unsafe_allow_html=True,
+    )
+    st.stop()
+
 # --------------------------------------------------------------------- judul
+st.button("← Kembali ke Awal", on_click=cb_awal, key="kembali")
 st.markdown('<div class="judul">Sistem Pakar Identifikasi Dini Tingkat Stres Mahasiswa</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub">Pilih gejala yang Anda alami, lalu tekan Analisis.</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub">Jawab setiap kartu dengan Ya atau Tidak.</div>', unsafe_allow_html=True)
 
 tab1, tab2, tab3, tab4 = st.tabs(["Skrining Stres", "Mesin Inferensi", "Basis Pengetahuan", "Uji Validasi"])
 
 # ------------------------------------------------------------------- TAB 1
 with tab1:
-    kolom = st.columns(4)
-    for col, (kategori, gejala) in zip(kolom, sistem.symptom_groups().items()):
-        with col.container(border=True):
-            st.markdown(f'<div class="kat">{kategori}</div>', unsafe_allow_html=True)
-            for kode, teks in gejala:
-                st.checkbox(teks, key=f"cb_{kode}")
+    daftar = sistem.symptom_table()
+    total = len(daftar)
+    idx = st.session_state["idx"]
 
-    b1, b2, _ = st.columns([1.3, 0.7, 4])
-    b1.button("Analisis Tingkat Stres", on_click=cb_analisis, use_container_width=True)
-    b2.button("Reset", on_click=cb_reset, use_container_width=True)
-
-    lap = st.session_state.get("laporan")
-    if lap:
-        kartu_hasil(lap)
+    if idx < total:
+        # ----- mode flashcard: satu gejala per kartu
+        g = daftar[idx]
+        st.markdown(
+            f'<div class="progres-teks">Pertanyaan {idx + 1} dari {total}</div>'
+            f'<div class="progres"><div style="width:{idx / total * 100:.0f}%"></div></div>'
+            f'<div class="kartu"><div class="kat">{g["kategori"]}</div>'
+            f'<div class="teks">{html.escape(g["gejala"])}</div></div>',
+            unsafe_allow_html=True,
+        )
+        _l, tengah, _r = st.columns([1, 2.2, 1])
+        with tengah:
+            y, t = st.columns(2)
+            y.button("Ya, saya alami", key="ya", on_click=cb_jawab, args=(g["kode"], True), use_container_width=True)
+            t.button("Tidak", key="tidak", on_click=cb_jawab, args=(g["kode"], False), use_container_width=True)
+            if idx > 0:
+                st.button("← Sebelumnya", key="sebelumnya", on_click=cb_mundur, use_container_width=True)
+    else:
+        # ----- semua kartu terjawab: tampilkan hasil
+        lap = st.session_state.get("laporan")
+        if lap:
+            kartu_hasil(lap)
+        st.button("Ulangi Kuesioner", key="ulang", on_click=cb_reset)
 
 # ------------------------------------------------------------------- TAB 2
 with tab2:
     lap = st.session_state.get("laporan")
     if not lap:
-        st.info("Jalankan analisis di tab Skrining Stres terlebih dahulu.")
+        st.info("Selesaikan kuesioner di tab Skrining Stres terlebih dahulu.")
     else:
         st.markdown("**Fakta di Working Memory**")
         st.markdown(chips(lap.facts), unsafe_allow_html=True)
